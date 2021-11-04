@@ -8,6 +8,7 @@ import {
   Delete,
   Query,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { InvoiceService } from './invoice.service';
 import { PDFGenerator } from '../service/pdfgenerator';
@@ -16,6 +17,7 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 
 import { IItem } from '../items/item.interface';
 import { resolve } from 'path';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
 
 @Controller('invoice')
 export class InvoiceController {
@@ -43,26 +45,8 @@ export class InvoiceController {
   }
 
   @Post()
-  async create(
-    @Body('items')
-    items: [
-      {
-        item: IItem;
-        qty: number;
-      },
-    ],
-    @Body('discount') discount: { type: string; value: number },
-    @Body('name') name: string,
-    @Body('customerId') customerId: string,
-  ) {
-    const invoice = await this.invoiceService.create(
-      name,
-      items,
-      discount,
-      customerId,
-    );
-    if (!invoice) return NotFoundException;
-    return invoice;
+  async create(@Body() createInvoiceDto: CreateInvoiceDto) {
+    return await this.invoiceService.create(createInvoiceDto);
   }
 
   @Get('test')

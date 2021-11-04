@@ -1,34 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import { CreateInvoiceItemDto } from './dto/create-invoice-item.dto';
 import { UpdateInvoiceItemDto } from './dto/update-invoice-item.dto';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectModel } from '@nestjs/sequelize';
 import { InvoiceItem } from './entities/invoice-item.entity';
 
 @Injectable()
 export class InvoiceItemService {
   constructor(
-    @InjectRepository(InvoiceItem)
-    private InvoiceItemRepository: Repository<InvoiceItem>,
+    @InjectModel(InvoiceItem)
+    private invoiceItem: typeof InvoiceItem,
   ) {}
   async create(createInvoiceItemDto: CreateInvoiceItemDto) {
-    const item = this.InvoiceItemRepository.create(createInvoiceItemDto);
-    return await this.InvoiceItemRepository.save(item);
+    const item = await this.invoiceItem.create(createInvoiceItemDto);
+    return item.save();
   }
 
   findAll() {
-    return this.InvoiceItemRepository.find();
+    return this.invoiceItem.findAll();
   }
 
   findOne(id: number) {
-    return this.InvoiceItemRepository.findOne({ id });
+    return this.invoiceItem.findOne({ where: { id } });
   }
 
   update(id: number, updateInvoiceItemDto: UpdateInvoiceItemDto) {
-    this.InvoiceItemRepository.update({ id }, updateInvoiceItemDto);
+    this.invoiceItem.update(updateInvoiceItemDto, { where: { id } });
   }
 
   remove(id: number) {
-    return this.InvoiceItemRepository.softDelete(id);
+    return this.invoiceItem.destroy({ where: { id } });
   }
 }

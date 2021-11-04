@@ -1,34 +1,34 @@
 import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/sequelize';
 import { CreateItemDto } from './dto/create-item.dto';
 import { UpdateItemDto } from './dto/update-item.dto';
 import { Item } from './entities/item.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+
 @Injectable()
 export class ItemsService {
   constructor(
-    @InjectRepository(Item)
-    private itemRepository: Repository<Item>,
+    @InjectModel(Item)
+    private item: typeof Item,
   ) {}
 
   async create(createItemDto: CreateItemDto) {
-    const item = this.itemRepository.create(createItemDto);
-    return await this.itemRepository.save(item);
+    const item = await this.item.create(createItemDto);
+    return item.save();
   }
 
   findAll() {
-    return this.itemRepository.find();
+    return this.item.findAll();
   }
 
   findOne(id: number) {
-    return this.itemRepository.findOne({ id });
+    return this.item.findOne({ where: { id } });
   }
 
   update(id: number, updateItemDto: UpdateItemDto) {
-    this.itemRepository.update({ id }, updateItemDto);
+    this.item.update(updateItemDto, { where: { id } });
   }
 
   remove(id: number) {
-    return this.itemRepository.softDelete(id);
+    return this.item.destroy({ where: { id } });
   }
 }

@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectModel } from '@nestjs/sequelize';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Customer } from './entities/customer.entity';
@@ -8,27 +7,27 @@ import { Customer } from './entities/customer.entity';
 @Injectable()
 export class CustomerService {
   constructor(
-    @InjectRepository(Customer)
-    private customerRepository: Repository<Customer>,
+    @InjectModel(Customer)
+    private customer: typeof Customer,
   ) {}
   async create(createCustomerDto: CreateCustomerDto) {
-    const item = this.customerRepository.create(createCustomerDto);
-    return await this.customerRepository.save(item);
+    const newCustomer = this.customer.create(createCustomerDto);
+    return (await newCustomer).save();
   }
 
   findAll() {
-    return this.customerRepository.find();
+    return this.customer.findAll();
   }
 
   findOne(id: number) {
-    return this.customerRepository.findOne({ id });
+    return this.customer.findOne({ where: { id } });
   }
 
   update(id: number, updateCustomerDto: UpdateCustomerDto) {
-    this.customerRepository.update({ id }, updateCustomerDto);
+    this.customer.update(updateCustomerDto, { where: { id } });
   }
 
   remove(id: number) {
-    return this.customerRepository.delete({ id });
+    return this.customer.destroy({ where: { id } });
   }
 }

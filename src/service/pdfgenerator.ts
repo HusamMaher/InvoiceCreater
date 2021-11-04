@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { createWriteStream } from 'fs';
 import * as PDFDocument from 'pdfkit';
 import { resolve as r } from 'path';
+import { Event } from './eventEmmiter.service';
+
+const myEvent = new Event();
 @Injectable()
 export class PDFGenerator {
   constructor() {}

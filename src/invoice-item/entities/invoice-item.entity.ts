@@ -1,40 +1,57 @@
 import {
-  Entity,
   Column,
-  PrimaryGeneratedColumn,
-  ManyToOne,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
-} from 'typeorm';
+  CreatedAt,
+  UpdatedAt,
+  BelongsTo,
+  HasMany,
+  Table,
+  Model,
+  ForeignKey,
+  PrimaryKey,
+  AutoIncrement,
+  DeletedAt,
+} from 'sequelize-typescript';
 import { Invoice } from '../../invoice/entities/invoice.entity';
 import { Item } from '../../items/entities/item.entity';
 
-@Entity()
-export class InvoiceItem {
-  @PrimaryGeneratedColumn()
-  id: number;
+@Table
+export class InvoiceItem extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column
+  id?: number;
 
-  @Column()
+  @Column
   unitPrice: number;
 
-  @Column()
+  @Column
   qty: number;
-  @Column()
+  @Column
   totalUnitPrice: number;
 
-  @CreateDateColumn()
+  @CreatedAt
+  @Column
   created_at: Date;
 
-  @UpdateDateColumn()
+  @UpdatedAt
+  @Column
   updated_at: Date;
 
-  @ManyToOne(() => Item, (item) => item.invoiceItem)
+  @ForeignKey(() => Item)
+  @Column
+  itemId!: number;
+
+  @BelongsTo(() => Item)
   item: Item;
 
-  @ManyToOne(() => Invoice, (invoice) => invoice.invoiceItem)
+  @ForeignKey(() => Invoice)
+  @Column
+  InvoiceId!: number;
+
+  @BelongsTo(() => Invoice)
   Invoice: Invoice;
 
-  @DeleteDateColumn()
-  deletedAt?: Date;
+  @DeletedAt
+  @Column
+  deletedAt: Date;
 }

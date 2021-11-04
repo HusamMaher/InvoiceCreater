@@ -1,117 +1,108 @@
 import { Injectable } from '@nestjs/common';
 // import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
-import { Repository } from 'typeorm';
-import { InjectRepository } from '@nestjs/typeorm';
 import { Invoice } from './entities/invoice.entity';
 import { InvoiceItem } from '../invoice-item/entities/invoice-item.entity';
-import { Between } from 'typeorm';
+import { Op } from 'sequelize';
 import { Customer } from '../customer/entities/customer.entity';
-
+import { Includeable } from 'sequelize/types/lib/model';
+import { InjectModel } from '@nestjs/sequelize';
+import { Item } from 'src/items/entities/item.entity';
+import { CreateInvoiceDto } from './dto/create-invoice.dto';
+import { invoiceDTO } from './dto/invoice.dto';
+import { Event } from 'src/service/eventEmmiter.service';
 @Injectable()
 export class InvoiceService {
   constructor(
-    @InjectRepository(Customer)
-    private customerRepository: Repository<Customer>,
-    @InjectRepository(Invoice)
-    private InvoiceRepository: Repository<Invoice>,
-    @InjectRepository(InvoiceItem)
-    private InvoiceItemRepository: Repository<InvoiceItem>,
+    @InjectModel(Customer)
+    private customer: typeof Customer,
+    @InjectModel(Invoice)
+    private invoice: typeof Invoice,
+    @InjectModel(InvoiceItem)
+    private invoiceItem: typeof InvoiceItem,
   ) {}
-  async create(
-    name: string,
-    items: [any],
-    discount: { type: string; value: number },
-    customerId: string,
-  ) {
-    try {
-      console.log('customer');
-      const customer = await this.customerRepository.findOne({
-        where: { id: customerId },
-      });
-      console.log(customer);
+  async create(createInvoiceDto: CreateInvoiceDto) {
+    const invoice = await this.invoice.create(createInvoiceDto.customerId);
 
-      const invoice = this.InvoiceRepository.create();
-      invoice.name = name;
-      invoice.customer = customer;
-      let invoiceItem;
-      let totalPrice = 0;
-      const invoiceItems = [];
-      for (const element of items) {
-        invoiceItem = this.InvoiceItemRepository.create();
-        invoiceItem.item = element.item.id;
-        invoiceItem.qty = element.qty;
-        invoiceItem.unitPrice = element.item.price;
-        if (discount.type === 'onItem') {
-          invoiceItem.totalUnitPrice =
-            element.item.price * element.qty * (discount.value / 100);
-        } else {
-          invoiceItem.totalUnitPrice = element.item.price * element.qty;
-        }
-        totalPrice += invoiceItem.totalUnitPrice;
+    const invoiceItem = new InvoiceItem();
+    let totalPrice = 0;
 
-        invoiceItem = await this.InvoiceItemRepository.save(invoiceItem);
-        invoiceItems.push(invoiceItem);
-      }
-
-      if (discount.type === 'onTotal') {
-        invoice.total = totalPrice - (discount.value / 100) * totalPrice;
+    for (const element of createInvoiceDto.items) {
+      invoiceItem.itemId = element.id;
+      invoiceItem.qty = element.qty;
+      invoiceItem.InvoiceId = invoice.id;
+      invoiceItem.unitPrice = element.price;
+      if (createInvoiceDto.discount.type === 'onItem') {
+        invoiceItem.totalUnitPrice =
+          element.price * element.qty * (createInvoiceDto.discount.value / 100);
       } else {
-        invoice.total = totalPrice;
+        invoiceItem.totalUnitPrice = element.price * element.qty;
       }
-      invoice.invoiceItem = invoiceItems;
-      const newInv = await this.InvoiceRepository.save(invoice);
-      return newInv;
-    } catch (error) {
-      throw new Error(error);
+      totalPrice += invoiceItem.totalUnitPrice;
+
+      await this.invoiceItem.create(invoiceItem.toJSON());
     }
+
+    if (createInvoiceDto.discount.type === 'onTotal') {
+      invoice.total =
+        totalPrice - (createInvoiceDto.discount.value / 100) * totalPrice;
+    } else {
+      invoice.total = totalPrice;
+    }
+
+    await this.invoice.update(invoice.toJSON(), { where: { id: invoice.id } });
+    const pdfEvent = new Event();
+
+    const inv = await this.findOne(invoice.id);
+    pdfEvent.emit('create', inv);
+    return inv;
   }
+
   async findcustomerInvoices(customerId: number) {
-    const customerInvoice = await this.InvoiceRepository.find({
+    const customerInvoice = await this.invoice.findAll({
       where: { customer: customerId },
     });
     return customerInvoice;
   }
-  findAll() {
-    return this.InvoiceRepository.find({
-      relations: ['invoiceItem'],
-      // withDeleted: true,
+  getInclude(): Includeable[] {
+    return [{ model: Customer }, { model: Item }];
+  }
+  async findAll() {
+    const invoice = await this.invoice.findAll({
+      include: this.getInclude(),
     });
+    return invoice;
   }
 
-  findOne(id: number) {
-    return this.InvoiceRepository.findOne(
-      { id },
-      { relations: ['invoiceItem', 'customer'] },
-    );
+  async findOne(id: number) {
+    const invoice = await this.invoice.findOne({
+      where: { id },
+      include: this.getInclude(),
+    });
+    return new invoiceDTO(invoice);
   }
   //update on same table
   async update(id: number, updateInvoiceDto: UpdateInvoiceDto) {
-    return await this.InvoiceRepository.update({ id }, updateInvoiceDto);
+    return await this.invoice.update(updateInvoiceDto, { where: { id } });
   }
 
   async remove(id: number) {
-    return this.InvoiceRepository.softDelete(id);
+    return this.invoice.destroy({ where: { id } });
   }
   getInvoiceById(id: string) {
-    return this.InvoiceRepository.findOne(id, {
-      relations: ['invoiceItem', 'customer'],
-    });
+    return this.invoice.findOne({ where: { id }, include: this.getInclude() });
   }
   //update on nested fields
   async updateInvoice(id, option) {
-    const invoice = await this.InvoiceRepository.createQueryBuilder('invoice')
-      .leftJoinAndSelect('invoice.invoiceItem', 'invoiceItem')
-      .where('invoiceItem.id = :id', { id })
-      .update(option);
+    const invoice = await this.invoice.update(option, { where: { id } });
 
     return invoice;
   }
   async getTotalPaymentByDate(dateFrom: Date, dateTo: Date) {
-    const totals = await this.InvoiceRepository.find({
-      select: ['total'],
+    const totals = await this.invoice.findAll({
+      attributes: ['total'],
       where: {
-        created_at: Between(dateFrom, dateTo),
+        created_at: { [Op.between]: [dateFrom, dateTo] },
       },
     });
     return totals;

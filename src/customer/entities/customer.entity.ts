@@ -1,24 +1,34 @@
 import {
-  Entity,
   Column,
-  PrimaryGeneratedColumn,
-  OneToMany,
-  DeleteDateColumn,
-} from 'typeorm';
+  Model,
+  Table,
+  HasMany,
+  ForeignKey,
+  DeletedAt,
+  PrimaryKey,
+  AutoIncrement,
+} from 'sequelize-typescript';
+
 import { Invoice } from '../../invoice/entities/invoice.entity';
-@Entity()
-export class Customer {
-  @PrimaryGeneratedColumn()
-  id: number;
-  @Column()
+@Table
+export class Customer extends Model {
+  @PrimaryKey
+  @AutoIncrement
+  @Column
+  id?: number;
+
+  @Column
   name: string;
-  @Column()
+  @Column
   address: string;
-  @Column()
+
+  @Column
   email: string;
-  @OneToMany(() => Invoice, (invoice) => invoice.customer)
+
+  @HasMany(() => Invoice, { sourceKey: 'id' })
   invoice: Invoice[];
 
-  @DeleteDateColumn()
-  deletedAt?: Date;
+  @DeletedAt
+  @Column
+  deletedAt: Date;
 }
